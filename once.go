@@ -29,13 +29,18 @@ func init() {
 }
 
 func clearExpiresKey() {
+  i := 0
   onceMap.Range(func(key, value interface{}) bool {
     v := value.(*onceVo)
     if v.ExpiresAt.Add(1 * time.Second).Before(time.Now()) {
       onceMap.Delete(key)
     }
+    i++
     return true
   })
+  if i > 10000 {
+    fmt.Printf("keys max10000 length: %d \n", i)
+  }
 }
 
 func setV(source, dst interface{}) error {
@@ -69,12 +74,11 @@ func loadOnce(key string, duration time.Duration) *onceVo {
     ExpiresAt: time.Now().Add(duration),
   })
   if ok {
-    once := onceObj.(*onceVo)
-    if once.ExpiresAt.Before(time.Now()) {
-      // onceMap.Delete(key)
-      onceObj.(*onceVo).ExpiresAt = time.Now().Add(duration)
-      onceMap.Store(key, onceObj)
-    }
+    //once := onceObj.(*onceVo)
+    //if once.ExpiresAt.Before(time.Now()) {
+    //  onceMap.Delete(key)
+    //  return once
+    //}
   }
   return onceObj.(*onceVo)
 }
