@@ -71,14 +71,14 @@ func loadOnce(key string, duration time.Duration) *onceVo {
   if ok {
     once := onceObj.(*onceVo)
     if once.ExpiresAt.Before(time.Now()) {
-      onceMap.Delete(key)
-    } else {
+      // onceMap.Delete(key)
       onceObj.(*onceVo).ExpiresAt = time.Now().Add(duration)
       onceMap.Store(key, onceObj)
     }
   }
   return onceObj.(*onceVo)
 }
+
 func OnceInMem(key string, duration time.Duration, fallback func() (interface{}, error), dst interface{}) error {
   newOnce := loadOnce(key, duration)
 
