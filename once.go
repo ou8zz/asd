@@ -111,6 +111,8 @@ func OnceInMem(key string, duration time.Duration, fallback func() (interface{},
       } else {
         onceMap.Delete(key)
       }
+    } else {
+      fmt.Printf("OnceInMem onceMap Load:%s error\n", key)
     }
   }
   return nil
