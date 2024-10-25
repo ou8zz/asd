@@ -5,22 +5,21 @@ import (
   "errors"
   "fmt"
   "github.com/gomodule/redigo/redis"
+  "math"
   "reflect"
   "sync"
   "time"
-  "math"
 )
 
 type onceVo struct {
-  Once *sync.Once
+  Once      *sync.Once
   ExpiresAt time.Time
-  Data interface{}
+  Data      interface{}
 }
 
 var onceMap sync.Map
-var lockMap sync.Map
 
-func init () {
+func init() {
   go func() {
     for true {
       clearExpiresKey()
@@ -65,28 +64,19 @@ func unmarshalFromRedis(conn redis.Conn, key string, dst interface{}) error {
 }
 
 func loadOnce(key string, duration time.Duration) *onceVo {
-  lockI, _ := lockMap.LoadOrStore(key, &sync.Mutex{})
-  lock := lockI.(*sync.Mutex)
-
-  lock.Lock()
-
-  onceObj, ok := onceMap.Load(key)
+  onceObj, ok := onceMap.LoadOrStore(key, &onceVo{
+    Once:      &sync.Once{},
+    ExpiresAt: time.Now().Add(duration),
+  })
   if ok {
     once := onceObj.(*onceVo)
     if once.ExpiresAt.Before(time.Now()) {
       onceMap.Delete(key)
+    } else {
+      onceObj.(*onceVo).ExpiresAt = time.Now().Add(duration)
+      onceMap.Store(key, onceObj)
     }
   }
-  onceObj, ok = onceMap.Load(key)
-  if !ok {
-    onceObj = &onceVo{
-      Once: &sync.Once{},
-      ExpiresAt: time.Now().Add(duration),
-    }
-    onceMap.Store(key, onceObj)
-  }
-
-  lock.Unlock()
   return onceObj.(*onceVo)
 }
 func OnceInMem(key string, duration time.Duration, fallback func() (interface{}, error), dst interface{}) error {
@@ -117,7 +107,6 @@ func OnceInMem(key string, duration time.Duration, fallback func() (interface{},
   }
   return nil
 }
-
 
 func OnceInRedis(key string, duration time.Duration, fallback func() (interface{}, error), dst interface{}) error {
   newOnce := loadOnce(key, duration)
@@ -150,7 +139,7 @@ func OnceInRedis(key string, duration time.Duration, fallback func() (interface{
         return
       }
 
-      var expireTime = math.Max(math.Ceil(duration.Seconds() * 2), 1)
+      var expireTime = math.Max(math.Ceil(duration.Seconds()*2), 1)
       _, err = conn.Do("EXPIRE", key, expireTime)
 
     }
