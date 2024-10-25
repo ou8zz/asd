@@ -30,6 +30,7 @@ func init() {
 
 func clearExpiresKey() {
   i := 0
+  startTime := time.Now()
   onceMap.Range(func(key, value interface{}) bool {
     v := value.(*onceVo)
     if v.ExpiresAt.Add(1 * time.Second).Before(time.Now()) {
@@ -38,8 +39,11 @@ func clearExpiresKey() {
     i++
     return true
   })
+  if n := time.Now().Sub(startTime).Milliseconds(); n > 100 {
+    fmt.Printf("clearExpiresKey expires key cost: %d \n", n)
+  }
   if i > 10000 {
-    fmt.Printf("keys max10000 length: %d \n", i)
+    fmt.Printf("clearExpiresKey keys max10000 length: %d \n", i)
   }
 }
 
