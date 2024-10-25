@@ -1,4 +1,4 @@
-module github.com/ou8zz/asd
+module asd
 
 go 1.15
 

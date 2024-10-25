@@ -103,16 +103,11 @@ func OnceInMem(key string, duration time.Duration, fallback func() (interface{},
     onceMap.Delete(key)
     return err
   } else {
-    onceObj, ok := onceMap.Load(key)
-    if ok {
-      once := onceObj.(*onceVo)
-      if once.Data != nil {
-        setV(once.Data, dst)
-      } else {
-        onceMap.Delete(key)
-      }
+    if newOnce.Data != nil {
+      setV(newOnce.Data, dst)
     } else {
-      fmt.Printf("OnceInMem onceMap Load:%s error\n", key)
+      onceMap.Delete(key)
+      fmt.Println("OnceInMem data is nil", key)
     }
   }
   return nil
