@@ -88,6 +88,10 @@ func loadOnce(key string, duration time.Duration) *onceVo {
   return onceObj.(*onceVo)
 }
 
+func RemoveOnceMap(key string) {
+  onceMap.Delete(key)
+}
+
 func OnceInMem(key string, duration time.Duration, fallback func() (interface{}, error), dst interface{}) error {
   newOnce := loadOnce(key, duration)
 
