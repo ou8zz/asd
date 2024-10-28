@@ -14,10 +14,12 @@ import (
 type onceVo struct {
   Once      *sync.Once
   ExpiresAt time.Time
+  Error     error
   Data      interface{}
 }
 
 var onceMap sync.Map
+var redisMap sync.Map
 
 func init() {
   go func() {
@@ -90,31 +92,31 @@ func loadOnce(key string, duration time.Duration) *onceVo {
 func OnceInMem(key string, duration time.Duration, fallback func() (interface{}, error), dst interface{}) error {
   newOnce := loadOnce(key, duration)
 
-  var err error
   newOnce.Once.Do(func() {
-    var result interface{}
-    result, err = fallback()
-    if err == nil {
-      newOnce.Data = result
-      onceMap.Store(key, newOnce)
+    newOnce.Data, newOnce.Error = fallback()
+    if newOnce.Error != nil {
+      onceMap.Delete(key)
     }
   })
-  if err != nil {
-    onceMap.Delete(key)
-    return err
+  if newOnce.Error != nil {
+    return newOnce.Error
+  }
+  if newOnce.Data != nil {
+    setV(newOnce.Data, dst)
   } else {
-    if newOnce.Data != nil {
-      setV(newOnce.Data, dst)
-    } else {
-      onceMap.Delete(key)
-      fmt.Println("OnceInMem data is nil", key)
-    }
+    onceMap.Delete(key)
+    fmt.Println("OnceInMem data is nil", key)
   }
   return nil
 }
 
 func OnceInRedis(key string, duration time.Duration, fallback func() (interface{}, error), dst interface{}) error {
-  newOnce := loadOnce(key, duration)
+  // newOnce := loadOnce(key, duration)
+  onceObj, _ := redisMap.LoadOrStore(key, &onceVo{
+    Once:      &sync.Once{},
+    ExpiresAt: time.Now().Add(duration),
+  })
+  newOnce := onceObj.(*onceVo)
 
   var hasValue = false
 
