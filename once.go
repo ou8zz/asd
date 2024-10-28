@@ -19,7 +19,6 @@ type onceVo struct {
 }
 
 var onceMap sync.Map
-var redisMap sync.Map
 
 func init() {
   go func() {
@@ -31,20 +30,22 @@ func init() {
 }
 
 func clearExpiresKey() {
+  i := 0
+  startTime := time.Now()
   onceMap.Range(func(key, value interface{}) bool {
     v := value.(*onceVo)
     if v.ExpiresAt.Add(1 * time.Second).Before(time.Now()) {
       onceMap.Delete(key)
     }
+    i++
     return true
   })
-  redisMap.Range(func(key, value interface{}) bool {
-    v := value.(*onceVo)
-    if v.ExpiresAt.Add(1 * time.Second).Before(time.Now()) {
-      redisMap.Delete(key)
-    }
-    return true
-  })
+  if n := time.Now().Sub(startTime).Milliseconds(); n > 100 {
+    fmt.Printf("clearExpiresKey expires key cost: %d \n", n)
+  }
+  if i > 10000 {
+    fmt.Printf("clearExpiresKey keys max10000 length: %d \n", i)
+  }
 }
 
 func setV(source, dst interface{}) error {
@@ -72,12 +73,23 @@ func unmarshalFromRedis(conn redis.Conn, key string, dst interface{}) error {
   return json.Unmarshal(bytes, dst)
 }
 
-func OnceInMem(key string, duration time.Duration, fallback func() (interface{}, error), dst interface{}) error {
-  onceObj, _ := onceMap.LoadOrStore(key, &onceVo{
+func loadOnce(key string, duration time.Duration) *onceVo {
+  onceObj, ok := onceMap.LoadOrStore(key, &onceVo{
     Once:      &sync.Once{},
     ExpiresAt: time.Now().Add(duration),
   })
-  newOnce := onceObj.(*onceVo)
+  if ok {
+    //once := onceObj.(*onceVo)
+    //if once.ExpiresAt.Before(time.Now()) {
+    //  onceMap.Delete(key)
+    //  return once
+    //}
+  }
+  return onceObj.(*onceVo)
+}
+
+func OnceInMem(key string, duration time.Duration, fallback func() (interface{}, error), dst interface{}) error {
+  newOnce := loadOnce(key, duration)
 
   newOnce.Once.Do(func() {
     newOnce.Data, newOnce.Error = fallback()
@@ -98,11 +110,7 @@ func OnceInMem(key string, duration time.Duration, fallback func() (interface{},
 }
 
 func OnceInRedis(key string, duration time.Duration, fallback func() (interface{}, error), dst interface{}) error {
-  onceObj, _ := redisMap.LoadOrStore(key, &onceVo{
-    Once:      &sync.Once{},
-    ExpiresAt: time.Now().Add(duration),
-  })
-  newOnce := onceObj.(*onceVo)
+  newOnce := loadOnce(key, duration)
 
   var hasValue = false
 
