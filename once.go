@@ -125,16 +125,15 @@ func OnceInRedis(key string, duration time.Duration, fallback func() (interface{
       //if newOnce.Error = setV(newOnce.Data, dst); newOnce.Error != nil {
       //  return
       //}
-      var err error
       var bytes []byte
       bytes, newOnce.Error = json.Marshal(newOnce.Data)
-      if err != nil {
+      if newOnce.Error != nil {
         return
       }
       conn := redisPool.Get()
       defer conn.Close()
       _, newOnce.Error = conn.Do("SET", key, bytes)
-      if err != nil {
+      if newOnce.Error != nil {
         return
       }
 
