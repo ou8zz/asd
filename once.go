@@ -116,47 +116,44 @@ func OnceInMem(key string, duration time.Duration, fallback func() (interface{},
 func OnceInRedis(key string, duration time.Duration, fallback func() (interface{}, error), dst interface{}) error {
   newOnce := loadOnce(key, duration)
 
-  var hasValue = false
-
-  var err error
   newOnce.Once.Do(func() {
-    var result interface{}
-    result, err = fallback()
-
-    if err != nil {
-      fmt.Errorf("get data error: %s", err.Error())
+    newOnce.Data, newOnce.Error = fallback()
+    if newOnce.Error != nil {
+      fmt.Errorf("get data error: %s", newOnce.Error.Error())
       //conn.Do("DEL", key) 不用删除，等待自动过期
     } else {
-      if err = setV(result, dst); err != nil {
-        return
-      } else {
-        hasValue = true
-      }
+      //if newOnce.Error = setV(newOnce.Data, dst); newOnce.Error != nil {
+      //  return
+      //}
+      var err error
       var bytes []byte
-      bytes, err = json.Marshal(result)
+      bytes, newOnce.Error = json.Marshal(newOnce.Data)
       if err != nil {
         return
       }
       conn := redisPool.Get()
       defer conn.Close()
-      _, err = conn.Do("SET", key, bytes)
+      _, newOnce.Error = conn.Do("SET", key, bytes)
       if err != nil {
         return
       }
 
       var expireTime = math.Max(math.Ceil(duration.Seconds()*2), 1)
-      _, err = conn.Do("EXPIRE", key, expireTime)
-
+      _, newOnce.Error = conn.Do("EXPIRE", key, expireTime)
     }
   })
-  if err != nil {
+  if newOnce.Error != nil {
     onceMap.Delete(key)
-    return err
+    return newOnce.Error
   }
-  if !hasValue {
+  if newOnce.Data != nil {
     conn := redisPool.Get()
     defer conn.Close()
-    return unmarshalFromRedis(conn, key, dst)
+    err := unmarshalFromRedis(conn, key, dst)
+    if err != nil {
+      onceMap.Delete(key)
+      setV(newOnce.Data, dst)
+    }
   }
   return nil
 }
