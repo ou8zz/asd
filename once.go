@@ -92,6 +92,7 @@ func RemoveOnceMap(key string) {
   onceMap.Delete(key)
 }
 
+// 使用场景: 执行函数中只有 err==nil 且 data!=nil 时才进行缓存
 func OnceInMem(key string, duration time.Duration, fallback func() (interface{}, error), dst interface{}) error {
   newOnce := loadOnce(key, duration)
 
@@ -107,8 +108,20 @@ func OnceInMem(key string, duration time.Duration, fallback func() (interface{},
   if newOnce.Data != nil {
     setV(newOnce.Data, dst)
   } else {
-    onceMap.Delete(key)
-    fmt.Println("OnceInMem data is nil", key)
+    // onceMap.Delete(key)
+    // fmt.Println("OnceInMem data is nil", key)
+  }
+  return nil
+}
+
+// 使用场景: 忽略错误,默认缓存所有
+func OnceInMemNoErr(key string, duration time.Duration, fallback func() interface{}, dst interface{}) error {
+  newOnce := loadOnce(key, duration)
+  newOnce.Once.Do(func() {
+    newOnce.Data = fallback()
+  })
+  if newOnce.Data != nil {
+    setV(newOnce.Data, dst)
   }
   return nil
 }
