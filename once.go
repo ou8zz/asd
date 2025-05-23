@@ -108,18 +108,21 @@ func OnceInMem(key string, duration time.Duration, fallback func() (interface{},
   if newOnce.Data != nil {
     setV(newOnce.Data, dst)
   } else {
-    // onceMap.Delete(key)
-    // fmt.Println("OnceInMem data is nil", key)
+    onceMap.Delete(key)
+    fmt.Println("OnceInMem data is nil", key)
   }
   return nil
 }
 
 // 使用场景: 忽略错误,默认缓存所有
-func OnceInMemNoErr(key string, duration time.Duration, fallback func() interface{}, dst interface{}) error {
+func OnceInCache(key string, duration time.Duration, fallback func() (interface{}, error), dst interface{}) error {
   newOnce := loadOnce(key, duration)
   newOnce.Once.Do(func() {
-    newOnce.Data = fallback()
+    newOnce.Data, newOnce.Error = fallback()
   })
+  if newOnce.Error != nil {
+    return newOnce.Error
+  }
   if newOnce.Data != nil {
     setV(newOnce.Data, dst)
   }
