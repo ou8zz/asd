@@ -120,11 +120,11 @@ func OnceInCache(key string, duration time.Duration, fallback func() (interface{
   newOnce.Once.Do(func() {
     newOnce.Data, newOnce.Error = fallback()
   })
-  if newOnce.Error != nil {
-    return newOnce.Error
-  }
   if newOnce.Data != nil {
     setV(newOnce.Data, dst)
+  }
+  if newOnce.Error != nil {
+    return newOnce.Error
   }
   return nil
 }
